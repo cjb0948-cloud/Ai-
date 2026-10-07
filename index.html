@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대한민국 화재 상황판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF0EE; --panel:#FFFFFF; --ink:#12262B; --muted:#5C6F73; --line:#CFD8D6;
+  --fire:#D9381E; --amber:#E8A317; --water:#3E6A8A;
+  --t0:#E3E9E7; --t1:#F6D9CF; --t2:#EE9F86; --t3:#D9381E; --t4:#8E1B0B;
+}
+*{box-sizing:border-box}
+html{font-family:"IBM Plex Sans KR",system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+body{margin:0;padding:24px clamp(16px,4vw,48px) 48px;max-width:1180px;margin-inline:auto}
+header{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+h1{font-size:clamp(24px,4vw,34px);margin:0;letter-spacing:-.02em}
+#updated{color:var(--muted);font-size:14px}
+#banner{display:none;background:#FFF3D6;border:1px solid var(--amber);padding:10px 14px;border-radius:6px;font-size:14px;margin-bottom:16px}
+#banner.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px 20px}
+h2{font-size:16px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+/* tile map */
+#tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tile{aspect-ratio:1/1;border-radius:6px;background:var(--t0);display:flex;flex-direction:column;justify-content:space-between;padding:8px;border:0;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.tile:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.tile[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:1px}
+.tile .n{font-size:clamp(18px,3vw,28px);font-weight:700;line-height:1}
+.tile .r{font-size:13px;font-weight:500}
+.tile.l1{background:var(--t1)} .tile.l2{background:var(--t2)}
+.tile.l3{background:var(--t3);color:#fff} .tile.l4{background:var(--t4);color:#fff}
+.tile.empty{visibility:hidden}
+.legend{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);margin-top:12px}
+.legend i{width:18px;height:12px;border-radius:3px;display:inline-block}
+/* feed */
+#feedHead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#clear{display:none;font:inherit;font-size:13px;background:none;border:1px solid var(--line);border-radius:4px;padding:2px 8px;cursor:pointer}
+#clear.on{display:inline-block}
+ul#feed{list-style:none;margin:0;padding:0;max-height:520px;overflow:auto}
+#feed li{padding:10px 0;border-top:1px solid var(--line)}
+#feed li:first-child{border-top:0}
+#feed .meta{font-size:12px;color:var(--muted);display:flex;gap:10px}
+#feed .meta b{color:var(--fire)}
+#feed p{margin:4px 0 0;font-size:14px;line-height:1.55;word-break:keep-all}
+.empty-msg{color:var(--muted);font-size:14px;padding:12px 0}
+/* lower row */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px}
+@media(max-width:860px){.row2{grid-template-columns:1fr}}
+.big{font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.big small{font-size:15px;font-weight:400;color:var(--muted);margin-left:6px}
+a.btn{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:6px;background:var(--ink);color:#fff;text-decoration:none;font-size:14px}
+a.btn:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.sidolist{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:4px 16px;font-size:13px}
+.sidolist li{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:4px 0}
+.sidolist b{font-weight:500}
+.note{font-size:12px;color:var(--muted);margin-top:28px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <h1>대한민국 화재 상황판</h1>
+  <div id="updated">불러오는 중…</div>
+</header>
+<div id="banner" role="status"></div>
+
+<div class="grid">
+  <section aria-labelledby="mapTitle">
+    <h2 id="mapTitle">시·도별 화재 관련 긴급재난문자</h2>
+    <p class="sub" id="windowLabel">최근 24시간 · 시·도를 누르면 해당 지역 알림만 봅니다</p>
+    <div id="tiles"></div>
+    <div class="legend" aria-hidden="true">
+      <span>적음</span>
+      <i style="background:var(--t0)"></i><i style="background:var(--t1)"></i><i style="background:var(--t2)"></i><i style="background:var(--t3)"></i><i style="background:var(--t4)"></i>
+      <span>많음</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="feedTitle">
+    <div id="feedHead">
+      <h2 id="feedTitle">최근 알림</h2>
+      <button id="clear" type="button">전체 보기</button>
+    </div>
+    <p class="sub" id="feedSub"></p>
+    <ul id="feed"></ul>
+  </section>
+</div>
+
+<div class="row2">
+  <section aria-labelledby="baseTitle">
+    <h2 id="baseTitle">연평균 화재 발생 (소방청 통계)</h2>
+    <p class="sub" id="baseSub"></p>
+    <div id="base"></div>
+  </section>
+  <section aria-labelledby="ytTitle">
+    <h2 id="ytTitle">실시간 화재 관련 영상</h2>
+    <p class="sub">뉴스 채널의 실시간 방송이나 화재 영상으로 연결합니다.</p>
+    <div id="yt"></div>
+  </section>
+</div>
+
+<p class="note">
+  이 화면의 건수는 소방청이 집계한 화재 발생 건수가 아니라, 행정안전부 긴급재난문자 중 화재·산불·폭발 관련 문자의 수입니다.
+  출처: 행정안전부 긴급재난문자(재난안전데이터 공유플랫폼), 소방청 연간화재통계(공공데이터포털).
+</p>
+
+<script>
+const LAYOUT = {
+  "서울":[1,0],"강원":[2,0],
+  "인천":[0,1],"경기":[1,1],"충북":[2,1],"경북":[3,1],
+  "충남":[1,2],"세종":[2,2],"대구":[3,2],
+  "전북":[1,3],"대전":[2,3],"경남":[3,3],"울산":[4,3],
+  "전남":[0,4],"광주":[1,4],"부산":[4,4],
+  "제주":[0,5]
+};
+const fmt = new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false});
+let DATA=null, selected=null;
+
+const $ = id => document.getElementById(id);
+const level = n => n===0?0 : n<=2?1 : n<=5?2 : n<=9?3 : 4;
+
+async function load(){
+  try{
+    const [latest, baseline, cfg] = await Promise.all([
+      fetch("data/latest.json",{cache:"no-store"}).then(r=>r.json()),
+      fetch("data/baseline.json",{cache:"no-store"}).then(r=>r.json()).catch(()=>null),
+      fetch("data/config.json",{cache:"no-store"}).then(r=>r.json()).catch(()=>({}))
+    ]);
+    DATA=latest;
+    renderHeader(); renderTiles(); renderFeed(); renderBaseline(baseline); renderYoutube(cfg);
+  }catch(e){
+    $("updated").textContent="데이터를 불러오지 못했습니다";
+  }
+}
+
+function renderHeader(){
+  $("updated").textContent = DATA.updatedAt ? "갱신 " + fmt.format(new Date(DATA.updatedAt)) : "";
+  $("windowLabel").textContent = `최근 ${DATA.windowHours||24}시간 · 시·도를 누르면 해당 지역 알림만 봅니다`;
+  if(DATA.sample){
+    $("banner").textContent="지금 보이는 내용은 화면 확인용 샘플입니다. README의 순서대로 API 키를 연결하면 실제 데이터로 바뀝니다.";
+    $("banner").classList.add("on");
+  }
+}
+
+function renderTiles(){
+  const box=$("tiles"); box.textContent="";
+  const cells={};
+  for(const [name,[c,r]] of Object.entries(LAYOUT)) cells[r*5+c]=name;
+  for(let i=0;i<5*6;i++){
+    const name=cells[i];
+    if(!name){ const d=document.createElement("div"); d.className="tile empty"; box.appendChild(d); continue; }
+    const n=(DATA.byRegion||{})[name]||0;
+    const b=document.createElement("button");
+    b.type="button"; b.className="tile l"+level(n);
+    b.setAttribute("aria-pressed", selected===name);
+    b.setAttribute("aria-label", `${name} ${n}건`);
+    const rn=document.createElement("span"); rn.className="r"; rn.textContent=name;
+    const nn=document.createElement("span"); nn.className="n"; nn.textContent=n;
+    b.append(rn,nn);
+    b.addEventListener("click",()=>{ selected = selected===name?null:name; renderTiles(); renderFeed(); });
+    box.appendChild(b);
+  }
+}
+
+function renderFeed(){
+  const ul=$("feed"); ul.textContent="";
+  const list=(DATA.alerts||[]).filter(a=>!selected||a.sido===selected);
+  $("clear").classList.toggle("on",!!selected);
+  $("feedSub").textContent = selected ? `${selected} · ${list.length}건` : `전국 · ${list.length}건`;
+  if(!list.length){
+    const li=document.createElement("li"); li.className="empty-msg";
+    li.textContent="해당 기간에 화재 관련 긴급재난문자가 없습니다."; ul.appendChild(li); return;
+  }
+  for(const a of list){
+    const li=document.createElement("li");
+    const m=document.createElement("div"); m.className="meta";
+    const t=document.createElement("span"); t.textContent=fmt.format(new Date(a.time));
+    const r=document.createElement("b"); r.textContent=a.region||a.sido||"";
+    m.append(t,r);
+    const p=document.createElement("p"); p.textContent=a.text;
+    li.append(m,p); ul.appendChild(li);
+  }
+}
+$("clear").addEventListener("click",()=>{selected=null;renderTiles();renderFeed();});
+
+function renderBaseline(b){
+  const box=$("base"); box.textContent="";
+  if(!b || !b.annualTotal){
+    $("baseSub").textContent="아직 연평균 값이 입력되지 않았습니다.";
+    const p=document.createElement("p"); p.className="empty-msg";
+    p.textContent="docs/data/baseline.json에 소방청 연간화재통계의 연도와 연간 발생 건수를 넣으면 이곳에 표시됩니다.";
+    box.appendChild(p); return;
+  }
+  $("baseSub").textContent=`${b.fromYear||""}~${b.toYear||""}년 평균`;
+  const yr=document.createElement("div"); yr.className="big";
+  yr.textContent=Math.round(b.annualTotal).toLocaleString("ko-KR");
+  const u=document.createElement("small"); u.textContent="건 / 년"; yr.appendChild(u);
+  const day=document.createElement("div"); day.className="big"; day.style.marginTop="8px";
+  day.textContent=(b.annualTotal/365).toFixed(0);
+  const u2=document.createElement("small"); u2.textContent="건 / 일"; day.appendChild(u2);
+  box.append(yr,day);
+  if(b.bySido){
+    const ul=document.createElement("ul"); ul.className="sidolist";
+    for(const [name,n] of Object.entries(b.bySido).sort((x,y)=>y[1]-x[1])){
+      const li=document.createElement("li");
+      const a=document.createElement("span"); a.textContent=name;
+      const c=document.createElement("b"); c.textContent=n.toLocaleString("ko-KR")+"건";
+      li.append(a,c); ul.appendChild(li);
+    }
+    box.appendChild(ul);
+  }
+}
+
+function renderYoutube(cfg){
+  const box=$("yt"); box.textContent="";
+  if(cfg.youtubeVideoId){
+    const f=document.createElement("iframe");
+    f.src="https://www.youtube.com/embed/"+encodeURIComponent(cfg.youtubeVideoId);
+    f.title="실시간 영상"; f.allowFullscreen=true; f.loading="lazy";
+    f.style.cssText="width:100%;aspect-ratio:16/9;border:0;border-radius:6px";
+    box.appendChild(f);
+  }
+  const a=document.createElement("a"); a.className="btn";
+  a.href="https://www.youtube.com/results?search_query="+encodeURIComponent("화재 실시간 속보");
+  a.target="_blank"; a.rel="noopener"; a.textContent="유튜브에서 화재 속보 보기";
+  box.appendChild(a);
+}
+
+load();
+setInterval(load, 5*60*1000);
+</script>
+</body>
+</html>
