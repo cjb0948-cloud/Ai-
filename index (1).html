@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>일일 화재상황판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --ink:#14202B; --muted:#5B6B79; --line:#D5DCE3;
+  --fire:#D4361F; --fire-soft:#FBE4DF; --amber:#B97500; --amber-soft:#FBEFD5;
+  --done:#2F7D5B; --bar:#14202B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1720; --surface:#17222D; --ink:#E7EDF2; --muted:#93A3B1; --line:#2A3947;
+    --fire:#FF6A4D; --fire-soft:#3A1E1A; --amber:#F0B34A; --amber-soft:#3A2F17; --done:#5FCB9A; --bar:#E7EDF2;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1720; --surface:#17222D; --ink:#E7EDF2; --muted:#93A3B1; --line:#2A3947;
+  --fire:#FF6A4D; --fire-soft:#3A1E1A; --amber:#F0B34A; --amber-soft:#3A2F17; --done:#5FCB9A; --bar:#E7EDF2;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 48px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--fire);outline-offset:2px}
+.head{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding-bottom:16px;border-bottom:3px solid var(--ink)}
+h1{margin:0;font-size:clamp(26px,5vw,40px);font-weight:900;letter-spacing:-.02em;line-height:1.15}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ctrl label{font-size:13px;color:var(--muted)}
+select,input[type=text],input[type=number]{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:40px}
+.btn{background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:8px 14px;min-height:40px;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}
+.notice{margin:14px 0 0;padding:10px 12px;background:var(--amber-soft);border-left:4px solid var(--amber);border-radius:0 6px 6px 0;font-size:13.5px}
+.notice.err{background:var(--fire-soft);border-left-color:var(--fire)}
+.notice code{background:var(--surface);padding:1px 5px;border-radius:4px;font-size:12.5px}
+.summary{display:grid;grid-template-columns:repeat(5,1fr);margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sum{padding:16px 18px;border-right:1px solid var(--line)}
+.sum:last-child{border-right:0}
+.sum .k{font-size:13px;color:var(--muted)}
+.sum .v{font-size:clamp(26px,4vw,40px);font-weight:900;line-height:1.1;margin-top:2px;font-variant-numeric:tabular-nums}
+.sum .u{font-size:14px;font-weight:500;color:var(--muted);margin-left:4px}
+.sum.hot .v{color:var(--fire)}
+@media(max-width:820px){
+  .summary{grid-template-columns:1fr 1fr}
+  .sum{border-bottom:1px solid var(--line)}
+  .sum:nth-child(2n){border-right:0}
+  .sum:last-child{grid-column:1/-1;border-bottom:0;border-right:0}
+}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:16px}
+.panel h2{margin:0 0 2px;font-size:17px;font-weight:700}
+.hint{margin:0 0 12px;color:var(--muted);font-size:13px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.cols .panel{margin-top:0}
+.row{display:grid;grid-template-columns:minmax(80px,150px) 1fr 44px;gap:8px;align-items:center;margin:8px 0;font-size:14px}
+.row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{position:relative;height:12px;background:var(--bg);border-radius:6px}
+.fill{height:100%;background:var(--bar);border-radius:6px}
+.row .n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.days{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;align-items:end;height:120px}
+.dcol{display:flex;flex-direction:column;justify-content:flex-end;height:100%;cursor:pointer;background:none;border:0;padding:0}
+.dbar{background:var(--line);border-radius:4px 4px 0 0;min-height:2px}
+.dcol.sel .dbar{background:var(--fire)}
+.dlab{font-size:11px;color:var(--muted);text-align:center;margin-top:4px;font-variant-numeric:tabular-nums}
+.dval{font-size:11.5px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.brow{display:grid;grid-template-columns:1fr;gap:6px;margin:6px 0 2px}
+.bmark{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink);border-radius:2px}
+.bfill{height:100%;background:var(--fire);border-radius:6px}
+.btext{font-size:13.5px;color:var(--muted)}
+.btext b{color:var(--ink)}
+.up{color:var(--fire);font-weight:700}.down{color:var(--done);font-weight:700}
+.legend{font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:3px;height:12px;background:var(--ink);vertical-align:-2px;margin-right:4px;border-radius:2px}
+.tablewrap{overflow-x:auto;max-height:520px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:620px}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:nth-child(-n+2),td:nth-child(-n+2){text-align:left}
+thead th{position:sticky;top:0;background:var(--surface);font-size:12.5px;color:var(--muted);z-index:1}
+td.rc{font-weight:700;color:var(--fire)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tools input{flex:1 1 200px}
+details.mini{margin-top:10px;font-size:13.5px}
+details.mini summary{cursor:pointer;color:var(--muted)}
+.bform{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
+.bform label{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:4px}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--bg);padding:8px;border-radius:6px;font-size:12px;max-height:160px;overflow:auto}
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.lk{display:block;padding:12px 14px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--ink);background:var(--bg)}
+.lk:hover{border-color:var(--fire)}
+.lk b{display:block;font-size:15px}
+.lk span{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+.foot{margin-top:24px;color:var(--muted);font-size:13px}
+.empty{padding:24px 8px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1>일일 화재상황판</h1>
+      <p class="sub" id="sub">소방청 화재정보서비스(공공데이터포털)</p>
+    </div>
+    <div class="ctrl">
+      <label for="dayPick">조회일</label>
+      <select id="dayPick" aria-label="조회일"></select>
+      <button class="btn ghost" id="reload" type="button">새로고침</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" style="display:none"></div>
+
+  <section class="summary" aria-label="요약">
+    <div class="sum hot"><div class="k">화재 접수</div><div class="v"><span id="sRcpt">-</span><span class="u">건</span></div></div>
+    <div class="sum"><div class="k">진행 중</div><div class="v"><span id="sPrgs">-</span><span class="u">건</span></div></div>
+    <div class="sum"><div class="k">상황 종료</div><div class="v"><span id="sEnd">-</span><span class="u">건</span></div></div>
+    <div class="sum"><div class="k">오인·허위 신고</div><div class="v"><span id="sFalse">-</span><span class="u">건</span></div></div>
+    <div class="sum"><div class="k">자체 진화</div><div class="v"><span id="sSelf">-</span><span class="u">건</span></div></div>
+  </section>
+
+  <section class="panel" aria-label="연평균 비교">
+    <h2>연평균과 비교</h2>
+    <p class="hint" id="baseHint"></p>
+    <div id="baseRow"></div>
+    <div class="legend"><i></i>검은 선이 연평균 하루 기준입니다. 접수건수에는 오인·허위 신고가 포함될 수 있어 연간 통계의 화재 건수와 정의가 다를 수 있습니다.</div>
+    <details class="mini">
+      <summary>기준값 바꾸기</summary>
+      <div class="bform">
+        <label>기준 이름<input type="text" id="bLabel"></label>
+        <label>연간 화재(건)<input type="number" id="bFires" min="1"></label>
+        <label>연간 일수<input type="number" id="bDays" min="365" max="366"></label>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="bSave" type="button">저장</button>
+        <button class="btn ghost" id="bReset" type="button">2025년 전국 기준으로 되돌리기</button>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel" aria-label="일별 추이">
+    <h2>최근 일별 화재 접수</h2>
+    <p class="hint">막대를 누르면 그 날짜로 바뀝니다.</p>
+    <div class="days" id="days"></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel" aria-label="본부별">
+      <h2>본부별 화재 접수</h2>
+      <p class="hint" id="hqHint">조회일 기준</p>
+      <div id="hq"></div>
+    </section>
+    <section class="panel" aria-label="관서별">
+      <h2>소방관서별 현황</h2>
+      <p class="hint">접수건수 많은 순입니다.</p>
+      <div class="tools"><input type="text" id="q" placeholder="본부 또는 관서 이름 검색" aria-label="검색"></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>본부</th><th>관서</th><th>접수</th><th>진행</th><th>종료</th><th>오인</th><th>허위</th><th>자체</th></tr></thead>
+          <tbody id="tb"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" aria-label="실시간 영상과 공식 현황">
+    <h2>실시간 영상·공식 현황</h2>
+    <p class="hint">누르면 새 창에서 열립니다.</p>
+    <div class="links">
+      <a class="lk" href="https://www.youtube.com/channel/UCbylW3LBcOLKL-3A6zIN32w" target="_blank" rel="noopener noreferrer"><b>안전한TV (행정안전부)</b><span>재난·안전 전문 유튜브 채널</span></a>
+      <a class="lk" href="https://www.youtube.com/channel/UC6mmbwPsf3O4ANC9R2kDEeQ" target="_blank" rel="noopener noreferrer"><b>경기도소방재난본부</b><span>소방 공식 유튜브 채널</span></a>
+      <a class="lk" href="https://www.youtube.com/playlist?list=PLZyPdpJJSNGxyZtyavkQiloiKoXkbg8up" target="_blank" rel="noopener noreferrer"><b>KBS 재난방송센터</b><span>재난 방송 영상 모음</span></a>
+      <a class="lk" href="https://119.gg.go.kr/main/prog/gis/map.do?menuId=main_004_012" target="_blank" rel="noopener noreferrer"><b>경기 119 재난발생현황</b><span>화재·구조·구급 발생 지도</span></a>
+    </div>
+  </section>
+
+  <details class="panel mini" id="rawBox">
+    <summary>데이터 항목 확인 (표시가 이상할 때 열어 보세요)</summary>
+    <p class="hint" style="margin-top:8px">API가 돌려준 항목 이름과 이 화면이 연결한 항목입니다.</p>
+    <pre id="rawInfo"></pre>
+  </details>
+
+  <p class="foot">자료: 소방청 화재정보서비스(공공데이터포털). 집계 시점에 따라 값이 나중에 수정될 수 있습니다.</p>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+  function num(v){var n=Number(String(v==null?"":v).replace(/,/g,"")); return isFinite(n)?n:0}
+  function fmtDay(y){return y.slice(0,4)+"-"+y.slice(4,6)+"-"+y.slice(6,8)}
+  function fmtDayKo(y){
+    var d=new Date(+y.slice(0,4),+y.slice(4,6)-1,+y.slice(6,8));
+    return y.slice(0,4)+"년 "+(+y.slice(4,6))+"월 "+(+y.slice(6,8))+"일 ("+["일","월","화","수","목","금","토"][d.getDay()]+")";
+  }
+
+  // 항목 연결: 이름(한글/영문)으로 먼저 찾고, 못 찾으면 문서에 적힌 순서로 연결
+  var FIELDS = [
+    ["date","발생일자",/ymd|발생일/i],
+    ["hq","본부명",/hdqt|hq|본부/i],
+    ["stn","소방관서명",/stn|ofc|관서/i],
+    ["rcpt","화재접수건수",/rcpt|접수/i],
+    ["prgs","화재진행건수",/prgr|진행/i],
+    ["mis","오인처리건수",/mis|오인/i],
+    ["fls","허위신고건수",/fls|fals|허위/i],
+    ["end","상황종료건수",/end|종료/i],
+    ["self","자체진화건수",/self|slf|자체/i]
+  ];
+  var mapping = null;
+  function buildMapping(sample){
+    var keys = Object.keys(sample).filter(function(k){return !/^(rnum|num|no|seq|rownum)$/i.test(k)});
+    var m = {}, used = {};
+    FIELDS.forEach(function(f){
+      var hit = keys.filter(function(k){return !used[k] && f[2].test(k)})[0];
+      if(hit){ m[f[0]]=hit; used[hit]=1; }
+    });
+    if(Object.keys(m).length < FIELDS.length && keys.length >= FIELDS.length){
+      m = {}; FIELDS.forEach(function(f,i){ m[f[0]] = keys[i]; });
+    }
+    return m;
+  }
+  function norm(row){
+    var o = {};
+    FIELDS.forEach(function(f){
+      var k = mapping[f[0]];
+      var v = k ? row[k] : "";
+      o[f[0]] = (f[0]==="date"||f[0]==="hq"||f[0]==="stn") ? String(v==null?"":v) : num(v);
+    });
+    return o;
+  }
+
+  var DATA = null, DAYS = [], cur = null, demo = /[?&]demo=1/.test(location.search);
+
+  function demoData(){
+    var hqs = ["서울","부산","대구","인천","광주","대전","울산","세종","경기","강원","충북","충남","전북","전남","경북","경남","제주"];
+    var days = {}, seed = 7;
+    function rnd(){ seed = (seed*9301+49297)%233280; return seed/233280; }
+    for(var d=0; d<7; d++){
+      var dt = new Date(Date.now()-d*86400000);
+      var y = dt.getFullYear()+("0"+(dt.getMonth()+1)).slice(-2)+("0"+dt.getDate()).slice(-2);
+      var rows = [];
+      hqs.forEach(function(h){
+        for(var s=1; s<=3; s++){
+          var r = Math.round(rnd()*(h==="경기"||h==="서울"?9:4));
+          rows.push({"발생일자":y,"본부명":h+"소방재난본부","소방관서명":h+" 제"+s+"소방서","화재접수건수":r,"화재진행건수":d===0?Math.round(r*0.2):0,"오인처리건수":Math.round(r*0.1),"허위신고건수":0,"상황종료건수":r,"자체진화건수":Math.round(r*0.3)});
+        }
+      });
+      days[y] = rows;
+    }
+    return {updated:new Date().toISOString(), days:days};
+  }
+
+  function showNotice(html, err){
+    var n=$("notice"); n.className = "notice"+(err?" err":""); n.innerHTML = html; n.style.display="";
+  }
+  function hideNotice(){ $("notice").style.display="none"; }
+
+  function load(){
+    hideNotice();
+    if(demo){ onData(demoData()); showNotice("화면 구성을 보기 위한 <b>예시 데이터</b>입니다(주소 끝의 <code>?demo=1</code>). 실제 자료가 아닙니다."); return; }
+    fetch("data/fire-daily.json?ts="+Date.now(), {cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+      .then(onData)
+      .catch(function(){
+        DATA=null; DAYS=[]; renderAll();
+        showNotice("아직 <code>data/fire-daily.json</code> 자료가 없습니다. GitHub 저장소의 <b>Actions → update-fire-data → Run workflow</b>를 한 번 실행하면 만들어집니다. 화면 구성만 먼저 보시려면 주소 끝에 <code>?demo=1</code>을 붙이세요.", true);
+      });
+  }
+
+  function onData(j){
+    DATA = j;
+    DAYS = Object.keys(j.days||{}).filter(function(k){return (j.days[k]||[]).length}).sort().reverse();
+    var first = DAYS.length ? j.days[DAYS[0]][0] : null;
+    mapping = first ? buildMapping(first) : null;
+    if(!cur || DAYS.indexOf(cur)<0) cur = DAYS[0] || null;
+    var sel = $("dayPick");
+    sel.innerHTML = DAYS.map(function(d){return '<option value="'+d+'">'+fmtDay(d)+'</option>'}).join("");
+    if(cur) sel.value = cur;
+    var upd = j.updated ? new Date(j.updated) : null;
+    $("sub").textContent = "소방청 화재정보서비스(공공데이터포털)" + (upd && !isNaN(upd) ? " · 자료 갱신 " + upd.toLocaleString("ko-KR") : "");
+    renderAll();
+    if(!DAYS.length && !demo) showNotice("저장된 자료에 조회 가능한 날짜가 없습니다. 인증키 승인 여부와 Actions 실행 기록을 확인하세요.", true);
+  }
+
+  function dayRows(d){ return (DATA && DATA.days[d] || []).map(norm); }
+  function sum(rows,k){ return rows.reduce(function(a,r){return a+r[k]},0); }
+
+  // 연평균 기준
+  var BK="fire-board-v2-base";
+  var DEFAULT_BASE={label:"2025년 전국(소방청)",fires:38341,days:365};
+  var base=DEFAULT_BASE;
+  try{var s=localStorage.getItem(BK); if(s){var p=JSON.parse(s); if(p&&p.fires>0&&p.days>0) base=p;}}catch(e){}
+  function fillBase(){ $("bLabel").value=base.label; $("bFires").value=base.fires; $("bDays").value=base.days; }
+
+  function renderAll(){
+    var rows = cur ? dayRows(cur) : [];
+    var rc=sum(rows,"rcpt");
+    $("sRcpt").textContent = cur ? rc.toLocaleString("ko-KR") : "-";
+    $("sPrgs").textContent = cur ? sum(rows,"prgs").toLocaleString("ko-KR") : "-";
+    $("sEnd").textContent = cur ? sum(rows,"end").toLocaleString("ko-KR") : "-";
+    $("sFalse").textContent = cur ? (sum(rows,"mis")+sum(rows,"fls")).toLocaleString("ko-KR") : "-";
+    $("sSelf").textContent = cur ? sum(rows,"self").toLocaleString("ko-KR") : "-";
+
+    renderBase(cur?rc:null);
+    renderDays();
+    renderHq(rows);
+    renderTable(rows);
+    renderRaw();
+  }
+
+  function renderBase(rc){
+    var avg = base.fires/base.days;
+    $("baseHint").textContent = base.label+" 연간 화재 "+base.fires.toLocaleString("ko-KR")+"건을 "+base.days+"일로 나눈 하루 평균과 조회일 접수건수를 비교합니다.";
+    if(rc==null){ $("baseRow").innerHTML='<div class="empty">조회일 자료가 없습니다.</div>'; return; }
+    var max=Math.max(rc,avg)*1.15||1, ratio=avg>0?rc/avg:0;
+    var cls = ratio>1.1?"up":(ratio<0.9?"down":"");
+    var word = ratio>1.1?"평균보다 높음":(ratio<0.9?"평균보다 낮음":"평균과 비슷");
+    $("baseRow").innerHTML = '<div class="brow"><div class="track" style="height:16px"><div class="bfill" style="width:'+(rc/max*100)+'%"></div><div class="bmark" style="left:'+(avg/max*100)+'%"></div></div>'
+      +'<div class="btext">조회일 접수 <b>'+rc.toLocaleString("ko-KR")+'건</b> · 연평균 하루 <b>'+(Math.round(avg*10)/10).toLocaleString("ko-KR")+'건</b> · <span class="'+cls+'">'+word+' (평균의 '+Math.round(ratio*100)+'%)</span></div></div>';
+  }
+
+  function renderDays(){
+    if(!DAYS.length){ $("days").innerHTML='<div class="empty">자료 없음</div>'; return; }
+    var list = DAYS.slice(0,14).reverse();
+    var totals = list.map(function(d){return sum(dayRows(d),"rcpt")});
+    var max = Math.max.apply(null,totals.concat([1]));
+    $("days").style.gridTemplateColumns = "repeat("+list.length+",1fr)";
+    $("days").style.gridAutoFlow = "row";
+    $("days").innerHTML = list.map(function(d,i){
+      return '<button type="button" class="dcol'+(d===cur?' sel':'')+'" data-d="'+d+'" aria-label="'+fmtDay(d)+' '+totals[i]+'건"><div class="dval">'+totals[i]+'</div><div class="dbar" style="height:'+(totals[i]/max*85)+'%"></div><div class="dlab">'+d.slice(6,8)+'일</div></button>';
+    }).join("");
+  }
+
+  function renderHq(rows){
+    if(!rows.length){ $("hq").innerHTML='<div class="empty">자료 없음</div>'; return; }
+    var m={};
+    rows.forEach(function(r){ m[r.hq]=(m[r.hq]||0)+r.rcpt; });
+    var list=Object.keys(m).map(function(k){return [k,m[k]]}).sort(function(a,b){return b[1]-a[1]});
+    var max=Math.max(list[0][1],1);
+    $("hqHint").textContent = cur ? fmtDayKo(cur)+" 기준" : "조회일 기준";
+    $("hq").innerHTML = list.map(function(x){
+      return '<div class="row"><span class="nm" title="'+esc(x[0])+'">'+esc(x[0])+'</span><div class="track"><div class="fill" style="width:'+(x[1]/max*100)+'%"></div></div><span class="n">'+x[1]+'</span></div>';
+    }).join("");
+  }
+
+  function renderTable(rows){
+    var q = $("q").value.trim();
+    var list = rows.filter(function(r){return !q || r.hq.indexOf(q)>=0 || r.stn.indexOf(q)>=0})
+      .sort(function(a,b){return b.rcpt-a.rcpt || (a.stn<b.stn?-1:1)});
+    if(!list.length){ $("tb").innerHTML='<tr><td colspan="8" class="empty">표시할 자료가 없습니다.</td></tr>'; return; }
+    $("tb").innerHTML = list.map(function(r){
+      return '<tr><td>'+esc(r.hq)+'</td><td>'+esc(r.stn)+'</td><td class="rc">'+r.rcpt+'</td><td>'+r.prgs+'</td><td>'+r.end+'</td><td>'+r.mis+'</td><td>'+r.fls+'</td><td>'+r.self+'</td></tr>';
+    }).join("");
+  }
+
+  function renderRaw(){
+    if(!DAYS.length){ $("rawInfo").textContent="자료 없음"; return; }
+    var first = DATA.days[DAYS[0]][0];
+    var lines = ["원본 첫 행:", JSON.stringify(first), "", "연결된 항목:"];
+    FIELDS.forEach(function(f){ lines.push(f[1]+" ← "+(mapping[f[0]]||"(찾지 못함)")); });
+    $("rawInfo").textContent = lines.join("\n");
+  }
+
+  // events
+  $("dayPick").addEventListener("change",function(e){ cur=e.target.value; renderAll(); });
+  $("days").addEventListener("click",function(e){ var b=e.target.closest("[data-d]"); if(b){ cur=b.getAttribute("data-d"); $("dayPick").value=cur; renderAll(); }});
+  $("q").addEventListener("input",function(){ renderTable(cur?dayRows(cur):[]); });
+  $("reload").addEventListener("click",load);
+  $("bSave").addEventListener("click",function(){
+    var f=+$("bFires").value, d=+$("bDays").value;
+    if(!(f>0)||!(d>0)){ $("bFires").focus(); return; }
+    base={label:$("bLabel").value.trim()||"사용자 지정",fires:f,days:d};
+    try{localStorage.setItem(BK,JSON.stringify(base))}catch(e){}
+    renderAll();
+  });
+  $("bReset").addEventListener("click",function(){
+    base=DEFAULT_BASE; try{localStorage.removeItem(BK)}catch(e){}
+    fillBase(); renderAll();
+  });
+
+  fillBase();
+  load();
+})();
+</script>
+</body>
+</html>
